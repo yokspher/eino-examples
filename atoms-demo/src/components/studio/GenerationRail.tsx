@@ -1,0 +1,65 @@
+import { Bot, CheckCircle2, LoaderCircle, TerminalSquare } from "lucide-react";
+
+import type { GenerationSession } from "@/types/domain";
+
+interface GenerationRailProps {
+  session: GenerationSession;
+}
+
+export function GenerationRail({ session }: GenerationRailProps) {
+  return (
+    <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-400">Agent rail</p>
+          <h2 className="mt-2 font-display text-2xl text-zinc-50">把生成过程真的展示出来</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">这里不是静态装饰，而是当前生成任务的真实阶段状态。</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-zinc-300">
+          {session.finishedAt ? "最近一次已完成" : "等待启动"}
+        </div>
+      </div>
+
+      <div className="grid gap-4">
+        {session.steps.map((step, index) => {
+          const running = step.status === "running";
+          const done = step.status === "done";
+
+          return (
+            <div
+              key={step.id}
+              className={`rounded-[24px] border px-4 py-4 transition ${
+                running
+                  ? "border-cobalt-400/50 bg-cobalt-500/10"
+                  : done
+                    ? "border-emerald-400/30 bg-emerald-400/10"
+                    : "border-white/8 bg-black/10"
+              }`}
+            >
+              <div className="flex items-start gap-4">
+                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                  {running ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin text-cobalt-200" />
+                  ) : done ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-200" />
+                  ) : index === 0 ? (
+                    <Bot className="h-4 w-4 text-zinc-300" />
+                  ) : (
+                    <TerminalSquare className="h-4 w-4 text-zinc-300" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <strong className="text-sm text-zinc-100">{step.title}</strong>
+                    <span className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">{step.status}</span>
+                  </div>
+                  <p className="text-sm leading-6 text-zinc-400">{step.detail}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
