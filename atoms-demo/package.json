@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "agent:proxy": "go run ./server",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

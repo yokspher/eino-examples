@@ -16,6 +16,7 @@ interface PromptFormProps {
 export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loading }: PromptFormProps) {
   const [form, setForm] = useState<AppPrompt>(value);
   const [engine, setEngine] = useState<AgentConfig>(agentConfig ?? defaultAgentConfig);
+  const [showAgentConfig, setShowAgentConfig] = useState(false);
 
   useEffect(() => {
     setForm(value);
@@ -23,7 +24,22 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
 
   useEffect(() => {
     setEngine(agentConfig ?? defaultAgentConfig);
+    setShowAgentConfig((agentConfig ?? defaultAgentConfig).mode === "agent");
   }, [agentConfig]);
+
+  const inferProviderLabel = (baseUrl: string, model: string) => {
+    const source = `${baseUrl} ${model}`.toLowerCase();
+    if (source.includes("openrouter")) {
+      return "OpenRouter";
+    }
+    if (source.includes("volcengine") || source.includes("ark")) {
+      return "Volcengine Ark";
+    }
+    if (source.includes("anthropic") || source.includes("claude")) {
+      return "Anthropic Compatible";
+    }
+    return "OpenAI Compatible";
+  };
 
   const preparedForm = useMemo(
     () => ({
@@ -43,7 +59,9 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
   const readinessText = canGenerate
     ? "输入已经足够清晰，可以开始生成。"
     : engine.mode === "agent" && !agentReady
-      ? "Agent 模式还缺少 Base URL、Model 或 API Key。"
+      ? engine.transport === "proxy"
+        ? "服务端代理模式还缺少 Proxy URL 或 Model。"
+        : "浏览器直连模式还缺少 Base URL、Model 或 API Key。"
       : "至少补全核心目标和目标用户，生成结果会稳定很多。";
 
   return (
@@ -75,13 +93,25 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
       </div>
 
       <div className="mb-5 rounded-[24px] border border-white/10 bg-black/10 p-4">
-        <div className="mb-4 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-[20px] border border-white/8 bg-white/5 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Generation engine</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+        <div className="rounded-[20px] border border-white/8 bg-white/5 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Generation engine</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                {engine.mode === "agent"
+                  ? engine.transport === "proxy"
+                    ? "当前通过服务端代理调用模型，更接近正式产品形态。"
+                    : "当前直接从浏览器调用模型，适合静态站点快速演示。"
+                  : "当前使用本地规则生成器，适合离线演示和兜底。"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setEngine((prev) => ({ ...prev, mode: "local" }))}
+                onClick={() => {
+                  setEngine((prev) => ({ ...prev, mode: "local" }));
+                  setShowAgentConfig(false);
+                }}
                 className={`rounded-full px-3 py-2 text-xs transition ${
                   engine.mode === "local" ? "bg-white text-zinc-950" : "border border-white/10 text-zinc-300 hover:bg-white/8"
                 }`}
@@ -90,7 +120,10 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
               </button>
               <button
                 type="button"
-                onClick={() => setEngine((prev) => ({ ...prev, mode: "agent" }))}
+                onClick={() => {
+                  setEngine((prev) => ({ ...prev, mode: "agent" }));
+                  setShowAgentConfig(true);
+                }}
                 className={`rounded-full px-3 py-2 text-xs transition ${
                   engine.mode === "agent" ? "bg-cobalt-300 text-zinc-950" : "border border-white/10 text-zinc-300 hover:bg-white/8"
                 }`}
@@ -98,82 +131,147 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
                 Agent LLM
               </button>
             </div>
-            <p className="mt-3 text-sm leading-6 text-zinc-400">
-              {engine.mode === "agent"
-                ? "当前会真实调用模型，让 Planner / Coder Agent 生成页面结构和代码。"
-                : "当前使用本地规则生成器，适合离线演示和兜底。"}
-            </p>
           </div>
 
-          <div className="rounded-[20px] border border-white/8 bg-white/5 p-4">
-            <div className="grid gap-3 lg:grid-cols-2">
-              <label className="grid gap-2 text-xs text-zinc-300">
-                <span>Provider Label</span>
-                <input
-                  value={engine.providerLabel}
-                  onChange={(event) => setEngine((prev) => ({ ...prev, providerLabel: event.target.value }))}
-                  className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
-                  placeholder="OpenAI Compatible"
-                />
-              </label>
-              <label className="grid gap-2 text-xs text-zinc-300">
-                <span>Model</span>
-                <input
-                  value={engine.model}
-                  onChange={(event) => setEngine((prev) => ({ ...prev, model: event.target.value }))}
-                  className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
-                  placeholder="gpt-4.1-mini"
-                />
-              </label>
-            </div>
-            <div className="mt-3 grid gap-3">
-              <label className="grid gap-2 text-xs text-zinc-300">
-                <span>Base URL</span>
-                <input
-                  value={engine.baseUrl}
-                  onChange={(event) => setEngine((prev) => ({ ...prev, baseUrl: event.target.value }))}
-                  className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
-                  placeholder="https://api.openai.com/v1"
-                />
-              </label>
-              <label className="grid gap-2 text-xs text-zinc-300">
-                <span>API Key（仅保存在当前浏览器）</span>
-                <input
-                  type="password"
-                  value={engine.apiKey}
-                  onChange={(event) => setEngine((prev) => ({ ...prev, apiKey: event.target.value }))}
-                  className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
-                  placeholder="sk-..."
-                />
-              </label>
-            </div>
-          </div>
-        </div>
+          {engine.mode === "agent" ? (
+            <div className="mt-4 rounded-[20px] border border-cobalt-400/15 bg-cobalt-500/8 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEngine((prev) => ({ ...prev, transport: "proxy" }))}
+                    className={`rounded-full px-3 py-1 text-xs transition ${
+                      engine.transport === "proxy" ? "bg-white text-zinc-950" : "border border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    服务端代理（推荐）
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEngine((prev) => ({ ...prev, transport: "browser" }))}
+                    className={`rounded-full px-3 py-1 text-xs transition ${
+                      engine.transport === "browser" ? "bg-white text-zinc-950" : "border border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    浏览器直连
+                  </button>
+                </div>
+              </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded-full px-3 py-1 text-xs ${
-              goalReady ? "bg-emerald-400/15 text-emerald-200" : "bg-white/8 text-zinc-400"
-            }`}
-          >
-            {goalReady ? "已补全核心目标" : "核心目标待补全"}
-          </span>
-          <span
-            className={`rounded-full px-3 py-1 text-xs ${
-              audienceReady ? "bg-emerald-400/15 text-emerald-200" : "bg-white/8 text-zinc-400"
-            }`}
-          >
-            {audienceReady ? "已补全目标用户" : "目标用户待补全"}
-          </span>
-          <span
-            className={`rounded-full px-3 py-1 text-xs ${
-              pageReady ? "bg-cobalt-400/15 text-cobalt-100" : "bg-white/8 text-zinc-400"
-            }`}
-          >
-            {pageReady ? `已配置 ${preparedForm.pages.length} 个页面` : "未填写页面，系统将自动补默认页"}
-          </span>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-zinc-200">
+                    Provider: {inferProviderLabel(engine.baseUrl, engine.model)}
+                  </span>
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-zinc-200">Model: {engine.model || "未填写"}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAgentConfig((current) => !current)}
+                  className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-white/10"
+                >
+                  {showAgentConfig ? "收起配置" : "展开配置"}
+                </button>
+              </div>
+
+              {showAgentConfig ? (
+                <div className="mt-4 grid gap-3">
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <label className="grid gap-2 text-xs text-zinc-300">
+                      <span>Model</span>
+                      <input
+                        value={engine.model}
+                        onChange={(event) =>
+                          setEngine((prev) => {
+                            const model = event.target.value;
+                            return {
+                              ...prev,
+                              model,
+                              providerLabel: inferProviderLabel(prev.baseUrl, model),
+                            };
+                          })
+                        }
+                        className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
+                        placeholder="gpt-4.1-mini"
+                      />
+                    </label>
+                    {engine.transport === "proxy" ? (
+                      <label className="grid gap-2 text-xs text-zinc-300">
+                        <span>Proxy URL</span>
+                        <input
+                          value={engine.proxyUrl}
+                          onChange={(event) => setEngine((prev) => ({ ...prev, proxyUrl: event.target.value }))}
+                          className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
+                          placeholder="/api/agent/generate"
+                        />
+                      </label>
+                    ) : (
+                      <label className="grid gap-2 text-xs text-zinc-300">
+                        <span>Base URL</span>
+                        <input
+                          value={engine.baseUrl}
+                          onChange={(event) =>
+                            setEngine((prev) => {
+                              const baseUrl = event.target.value;
+                              return {
+                                ...prev,
+                                baseUrl,
+                                providerLabel: inferProviderLabel(baseUrl, prev.model),
+                              };
+                            })
+                          }
+                          className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
+                          placeholder="https://api.openai.com/v1"
+                        />
+                      </label>
+                    )}
+                  </div>
+                  {engine.transport === "browser" ? (
+                    <label className="grid gap-2 text-xs text-zinc-300">
+                      <span>API Key（仅保存在当前浏览器）</span>
+                      <input
+                        type="password"
+                        value={engine.apiKey}
+                        onChange={(event) => setEngine((prev) => ({ ...prev, apiKey: event.target.value }))}
+                        className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
+                        placeholder="sk-..."
+                      />
+                    </label>
+                  ) : (
+                    <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 px-4 py-3 text-xs leading-6 text-emerald-100">
+                      服务端代理模式下，API Key 由后端环境变量提供，不需要暴露在浏览器里。
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-xs ${
+                goalReady ? "bg-emerald-400/15 text-emerald-200" : "bg-white/8 text-zinc-400"
+              }`}
+            >
+              {goalReady ? "已补全核心目标" : "核心目标待补全"}
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 text-xs ${
+                audienceReady ? "bg-emerald-400/15 text-emerald-200" : "bg-white/8 text-zinc-400"
+              }`}
+            >
+              {audienceReady ? "已补全目标用户" : "目标用户待补全"}
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 text-xs ${
+                pageReady ? "bg-cobalt-400/15 text-cobalt-100" : "bg-white/8 text-zinc-400"
+              }`}
+            >
+              {pageReady ? `已配置 ${preparedForm.pages.length} 个页面` : "未填写页面，系统将自动补默认页"}
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-zinc-400">{readinessText}</p>
         </div>
-        <p className="mt-3 text-sm leading-6 text-zinc-400">{readinessText}</p>
       </div>
 
       <form

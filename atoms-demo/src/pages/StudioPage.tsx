@@ -93,7 +93,7 @@ export function StudioPage() {
         </div>
       }
     >
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_0.78fr_1.08fr]">
+      <section className="grid gap-6 xl:grid-cols-[0.96fr_0.94fr_1.1fr]">
         <div className="grid gap-6">
           <PromptForm
             value={project.prompt}

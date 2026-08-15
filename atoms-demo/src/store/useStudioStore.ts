@@ -151,8 +151,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       return;
     }
 
-    const mode = get().profile?.agentConfig?.mode ?? "local";
-    const engineLabel = mode === "agent" ? "Agent LLM" : "Local Demo";
+    const agentConfig = get().profile?.agentConfig ?? defaultAgentConfig;
+    const mode = agentConfig.mode ?? "local";
+    const engineLabel = mode === "agent" ? (agentConfig.transport === "proxy" ? "Proxy Agent" : "Browser Agent") : "Local Demo";
     const startedAt = stamp();
     let steps = baseSteps(mode);
     set({
@@ -178,7 +179,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
       const { plan, bundle, notes } =
         mode === "agent"
-          ? await runAgentGeneration(prompt, { ...(get().profile?.agentConfig ?? defaultAgentConfig), mode: "agent" })
+          ? await runAgentGeneration(prompt, { ...agentConfig, mode: "agent" })
           : {
               plan: buildAppPlan(prompt),
               bundle: undefined,

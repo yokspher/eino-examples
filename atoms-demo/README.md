@@ -15,6 +15,15 @@ pnpm install
 pnpm dev
 ```
 
+如果要用推荐的服务端代理模式，请再开一个终端：
+
+```bash
+export AGENT_API_KEY=your_key
+export AGENT_BASE_URL=https://api.openai.com/v1
+export AGENT_MODEL=gpt-4.1-mini
+pnpm agent:proxy
+```
+
 ## 常用命令
 
 ```bash
@@ -54,7 +63,17 @@ pnpm preview
 - `Model`
 - `API Key`
 
-这些配置只保存在当前浏览器的 IndexedDB，不会写入仓库。当前静态站点采用 `BYOK`（bring your own key）方式工作，因此无需额外后端也能跑通真实 Agent 生成链路。
+当前支持两种连接方式：
+
+- `服务端代理（推荐）`
+  - 前端调用 `/api/agent/generate`
+  - API Key 保存在后端环境变量
+  - 更接近正式产品结构
+- `浏览器直连`
+  - 当前静态站点可直接使用
+  - 适合无后端时的快速演示
+
+这些配置只保存在当前浏览器的 IndexedDB，不会写入仓库。
 
 ## 项目文档
 

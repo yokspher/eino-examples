@@ -1,10 +1,13 @@
 export type ProjectStatus = "draft" | "planning" | "building" | "generated" | "error";
 export type GenerationMode = "local" | "agent";
+export type AgentTransport = "proxy" | "browser";
 
 export interface AgentConfig {
   mode: GenerationMode;
+  transport: AgentTransport;
   providerLabel: string;
   baseUrl: string;
+  proxyUrl: string;
   model: string;
   apiKey: string;
   temperature: number;

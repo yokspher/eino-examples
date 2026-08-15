@@ -64,13 +64,28 @@ describe("PromptForm", () => {
       <PromptForm
         value={basePrompt}
         preferredStyle="包豪斯低对比"
-        agentConfig={{ ...defaultAgentConfig, mode: "agent", apiKey: "" }}
+        agentConfig={{ ...defaultAgentConfig, mode: "agent", transport: "browser", apiKey: "" }}
         onSubmit={onSubmit}
         loading={false}
       />,
     );
 
     expect(screen.getByRole("button", { name: "补全后开始生成" })).toBeDisabled();
-    expect(screen.getByText("Agent 模式还缺少 Base URL、Model 或 API Key。")).toBeInTheDocument();
+    expect(screen.getByText("浏览器直连模式还缺少 Base URL、Model 或 API Key。")).toBeInTheDocument();
+  });
+
+  it("should allow proxy mode without browser api key", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <PromptForm
+        value={basePrompt}
+        preferredStyle="包豪斯低对比"
+        agentConfig={{ ...defaultAgentConfig, mode: "agent", transport: "proxy", apiKey: "" }}
+        onSubmit={onSubmit}
+        loading={false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "启动 Agent 生成" })).toBeEnabled();
   });
 });

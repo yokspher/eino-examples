@@ -31,8 +31,10 @@ interface BundlePayload {
 
 export const defaultAgentConfig: AgentConfig = {
   mode: "local",
+  transport: "proxy",
   providerLabel: "OpenAI Compatible",
   baseUrl: "https://api.openai.com/v1",
+  proxyUrl: "/api/agent/generate",
   model: "gpt-4.1-mini",
   apiKey: "",
   temperature: 0.4,
@@ -151,6 +153,46 @@ async function invokeOpenAICompatible<T>(config: AgentConfig, messages: ChatMess
   return extractJsonObject(content) as T;
 }
 
+async function invokeProxyAgent(config: AgentConfig, prompt: AppPrompt): Promise<AgentGenerationResult> {
+  const proxyUrl = config.proxyUrl.trim() || "/api/agent/generate";
+
+  const response = await fetch(proxyUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      config: {
+        baseUrl: config.baseUrl,
+        model: config.model,
+        temperature: config.temperature,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`代理生成失败（${response.status}）：${text.slice(0, 240)}`);
+  }
+
+  const payload = (await response.json()) as {
+    plan?: PlanPayload;
+    bundle?: BundlePayload;
+    notes?: string[];
+  };
+
+  if (!payload.plan || !payload.bundle) {
+    throw new Error("代理没有返回完整的 plan 和 bundle");
+  }
+
+  return {
+    plan: normalizePlan(prompt, payload.plan),
+    bundle: normalizeBundle(prompt, payload.bundle),
+    notes: ensureList(payload.notes),
+  };
+}
+
 function normalizePlan(prompt: AppPrompt, payload: PlanPayload): AppPlan {
   const pages = toPlannedPages(payload.pages);
 
@@ -189,6 +231,10 @@ function normalizeBundle(prompt: AppPrompt, payload: BundlePayload): GeneratedBu
 }
 
 export async function runAgentGeneration(prompt: AppPrompt, config: AgentConfig): Promise<AgentGenerationResult> {
+  if (config.transport === "proxy") {
+    return invokeProxyAgent(config, prompt);
+  }
+
   const plannerSystem = `
 你是一个资深产品规划 Agent，负责把用户需求整理成可生成网页应用的结构化计划。
 输出必须是 JSON 对象，不要附带解释，不要使用 Markdown。
@@ -268,6 +314,9 @@ ${JSON.stringify(prompt, null, 2)}
 export function isAgentConfigReady(config?: AgentConfig | null) {
   if (!config || config.mode !== "agent") {
     return true;
+  }
+  if (config.transport === "proxy") {
+    return Boolean(config.proxyUrl.trim() && config.model.trim());
   }
   return Boolean(config.baseUrl.trim() && config.model.trim() && config.apiKey.trim());
 }
