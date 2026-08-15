@@ -1,9 +1,20 @@
 export type ProjectStatus = "draft" | "planning" | "building" | "generated" | "error";
+export type GenerationMode = "local" | "agent";
+
+export interface AgentConfig {
+  mode: GenerationMode;
+  providerLabel: string;
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+  temperature: number;
+}
 
 export interface WorkspaceProfile {
   id: string;
   nickname: string;
   preferredStyle: string;
+  agentConfig?: AgentConfig;
   createdAt: string;
 }
 
@@ -55,6 +66,8 @@ export interface ProjectVersion {
   promptSnapshot: AppPrompt;
   planSnapshot: AppPlan;
   bundle: GeneratedBundle;
+  generationMode?: GenerationMode;
+  generationNotes?: string[];
   createdAt: string;
 }
 
@@ -75,9 +88,12 @@ export interface GenerationStep {
 
 export interface GenerationSession {
   projectId: string | null;
+  mode?: GenerationMode;
+  engineLabel?: string;
   steps: GenerationStep[];
   activeStepId: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   errorMessage?: string;
+  notes?: string[];
 }

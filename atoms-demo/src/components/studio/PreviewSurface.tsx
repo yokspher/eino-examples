@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Maximize2, RefreshCcw, TriangleAlert } from "lucide-react";
+import { Download, Maximize2, RefreshCcw, TriangleAlert } from "lucide-react";
 
 import type { GeneratedBundle } from "@/types/domain";
 
@@ -10,6 +10,20 @@ interface PreviewSurfaceProps {
 export function PreviewSurface({ bundle }: PreviewSurfaceProps) {
   const [keySeed, setKeySeed] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+
+  const handleDownload = () => {
+    if (!bundle) {
+      return;
+    }
+
+    const blob = new Blob([bundle.previewDoc], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "atoms-demo-preview.html";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <section
@@ -24,6 +38,15 @@ export function PreviewSurface({ bundle }: PreviewSurfaceProps) {
           <p className="mt-2 text-sm leading-6 text-zinc-400">这里渲染的是当前版本的 `srcDoc`，不是静态图片。</p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={!bundle}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-300 transition hover:bg-white/10 disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            导出 HTML
+          </button>
           <button
             type="button"
             onClick={() => setKeySeed((current) => current + 1)}

@@ -23,6 +23,7 @@ export function StudioPage() {
   const restoreVersion = useStudioStore((state) => state.restoreVersion);
   const remixVersion = useStudioStore((state) => state.remixVersion);
   const runGeneration = useStudioStore((state) => state.runGeneration);
+  const saveAgentConfig = useStudioStore((state) => state.saveAgentConfig);
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
 
   const project = projects.find((item) => item.id === projectId);
@@ -97,8 +98,10 @@ export function StudioPage() {
           <PromptForm
             value={project.prompt}
             preferredStyle={profile?.preferredStyle}
+            agentConfig={profile?.agentConfig}
             loading={isGenerating}
-            onSubmit={async (prompt: AppPrompt) => {
+            onSubmit={async (prompt: AppPrompt, agentConfig) => {
+              await saveAgentConfig(agentConfig);
               await runGeneration(project.id, prompt);
             }}
           />

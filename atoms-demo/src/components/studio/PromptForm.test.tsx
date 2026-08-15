@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { PromptForm } from "@/components/studio/PromptForm";
+import { defaultAgentConfig } from "@/lib/agent";
 import type { AppPrompt } from "@/types/domain";
 
 const basePrompt: AppPrompt = {
@@ -16,7 +17,15 @@ const basePrompt: AppPrompt = {
 describe("PromptForm", () => {
   it("should submit normalized arrays", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<PromptForm value={basePrompt} preferredStyle="包豪斯低对比" onSubmit={onSubmit} loading={false} />);
+    render(
+      <PromptForm
+        value={basePrompt}
+        preferredStyle="包豪斯低对比"
+        agentConfig={defaultAgentConfig}
+        onSubmit={onSubmit}
+        loading={false}
+      />,
+    );
 
     fireEvent.change(screen.getByDisplayValue("首页"), {
       target: { value: "首页，结果页， FAQ " },
@@ -29,5 +38,39 @@ describe("PromptForm", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0].pages).toEqual(["首页", "结果页", "FAQ"]);
     expect(onSubmit.mock.calls[0][0].styleKeywords).toEqual(["包豪斯", "低对比", "编辑部"]);
+    expect(onSubmit.mock.calls[0][1].mode).toBe("local");
+  });
+
+  it("should block submit when goal is too short", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <PromptForm
+        value={{ ...basePrompt, goal: "太短", audience: "产品经理" }}
+        preferredStyle="包豪斯低对比"
+        agentConfig={defaultAgentConfig}
+        onSubmit={onSubmit}
+        loading={false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "补全后开始生成" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "补全后开始生成" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("should require model config in agent mode", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <PromptForm
+        value={basePrompt}
+        preferredStyle="包豪斯低对比"
+        agentConfig={{ ...defaultAgentConfig, mode: "agent", apiKey: "" }}
+        onSubmit={onSubmit}
+        loading={false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "补全后开始生成" })).toBeDisabled();
+    expect(screen.getByText("Agent 模式还缺少 Base URL、Model 或 API Key。")).toBeInTheDocument();
   });
 });

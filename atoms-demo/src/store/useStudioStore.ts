@@ -2,9 +2,10 @@ import { nanoid } from "nanoid";
 import { create } from "zustand";
 
 import { defaultPrompt, generatorPresets } from "@/data/presets";
+import { defaultAgentConfig, runAgentGeneration } from "@/lib/agent";
 import { loadProjectVersions, loadProjects, loadWorkspaceProfile, saveProject, saveProjectVersion, saveWorkspaceProfile } from "@/lib/db";
 import { buildAppPlan, buildGeneratedBundle } from "@/lib/generator";
-import type { AppPrompt, GenerationSession, GenerationStep, Project, ProjectVersion, WorkspaceProfile } from "@/types/domain";
+import type { AgentConfig, AppPrompt, GenerationMode, GenerationSession, GenerationStep, Project, ProjectVersion, WorkspaceProfile } from "@/types/domain";
 
 type ProjectVersionMap = Record<string, ProjectVersion[]>;
 
@@ -16,6 +17,7 @@ interface StudioState {
   generation: GenerationSession;
   hydrate: () => Promise<void>;
   initializeWorkspace: (nickname: string, preferredStyle: string) => Promise<void>;
+  saveAgentConfig: (config: AgentConfig) => Promise<void>;
   createProject: (prompt?: Partial<AppPrompt>) => Promise<Project>;
   seedPresetProject: (presetId: string) => Promise<Project>;
   runGeneration: (projectId: string, prompt: AppPrompt) => Promise<void>;
@@ -25,15 +27,25 @@ interface StudioState {
   setProjectDeleted: (projectId: string, deleted: boolean) => Promise<void>;
 }
 
-const baseSteps = (): GenerationStep[] => [
-  { id: "parse", title: "理解需求", detail: "把自然语言整理为结构化输入", status: "idle" },
-  { id: "plan", title: "规划页面", detail: "拆出页面、模块与交互", status: "idle" },
-  { id: "build", title: "生成代码", detail: "拼装 HTML / CSS / JS 结果", status: "idle" },
-  { id: "preview", title: "装配预览", detail: "生成可直接运行的 srcDoc", status: "idle" },
-];
+const baseSteps = (mode: GenerationMode = "local"): GenerationStep[] =>
+  mode === "agent"
+    ? [
+        { id: "parse", title: "协调 Agent", detail: "整理需求并准备发给模型", status: "idle" },
+        { id: "plan", title: "Planner Agent", detail: "由模型拆出页面、模块与交互", status: "idle" },
+        { id: "build", title: "Coder Agent", detail: "由模型生成 HTML / CSS / JS", status: "idle" },
+        { id: "preview", title: "装配预览", detail: "把模型结果拼成可直接运行的 srcDoc", status: "idle" },
+      ]
+    : [
+        { id: "parse", title: "理解需求", detail: "把自然语言整理为结构化输入", status: "idle" },
+        { id: "plan", title: "规划页面", detail: "拆出页面、模块与交互", status: "idle" },
+        { id: "build", title: "生成代码", detail: "拼装 HTML / CSS / JS 结果", status: "idle" },
+        { id: "preview", title: "装配预览", detail: "生成可直接运行的 srcDoc", status: "idle" },
+      ];
 
 const emptyGeneration = (): GenerationSession => ({
   projectId: null,
+  mode: "local",
+  engineLabel: "Local Demo",
   steps: baseSteps(),
   activeStepId: null,
   startedAt: null,
@@ -61,12 +73,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
   hydrate: async () => {
     const [profile, projects] = await Promise.all([loadWorkspaceProfile(), loadProjects()]);
+    const normalizedProfile = profile ? { ...profile, agentConfig: profile.agentConfig ?? defaultAgentConfig } : null;
     const versionsEntries = await Promise.all(
       projects.map(async (project) => [project.id, (await loadProjectVersions(project.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))] as const),
     );
     set({
       hydrated: true,
-      profile: profile ?? null,
+      profile: normalizedProfile,
       projects,
       versions: Object.fromEntries(versionsEntries),
     });
@@ -77,10 +90,30 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       id: nanoid(),
       nickname,
       preferredStyle,
+      agentConfig: defaultAgentConfig,
       createdAt: stamp(),
     };
     await saveWorkspaceProfile(profile);
     set({ profile });
+  },
+
+  saveAgentConfig: async (config) => {
+    const existing = get().profile;
+    const nextProfile: WorkspaceProfile = existing
+      ? {
+          ...existing,
+          agentConfig: config,
+        }
+      : {
+          id: nanoid(),
+          nickname: "Builder",
+          preferredStyle: "包豪斯低对比",
+          agentConfig: config,
+          createdAt: stamp(),
+        };
+
+    await saveWorkspaceProfile(nextProfile);
+    set({ profile: nextProfile });
   },
 
   createProject: async (promptPatch) => {
@@ -118,83 +151,116 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       return;
     }
 
+    const mode = get().profile?.agentConfig?.mode ?? "local";
+    const engineLabel = mode === "agent" ? "Agent LLM" : "Local Demo";
     const startedAt = stamp();
-    let steps = baseSteps();
+    let steps = baseSteps(mode);
     set({
       generation: {
         projectId,
+        mode,
+        engineLabel,
         steps: patchStep(steps, "parse", "running"),
         activeStepId: "parse",
         startedAt,
         finishedAt: null,
+        notes: [],
       },
     });
 
-    await wait();
-    steps = patchStep(steps, "parse", "done");
-    steps = patchStep(steps, "plan", "running");
-    set((state) => ({
-      generation: { ...state.generation, steps, activeStepId: "plan" },
-    }));
+    try {
+      await wait();
+      steps = patchStep(steps, "parse", "done");
+      steps = patchStep(steps, "plan", "running");
+      set((state) => ({
+        generation: { ...state.generation, steps, activeStepId: "plan" },
+      }));
 
-    const plan = buildAppPlan(prompt);
+      const { plan, bundle, notes } =
+        mode === "agent"
+          ? await runAgentGeneration(prompt, { ...(get().profile?.agentConfig ?? defaultAgentConfig), mode: "agent" })
+          : {
+              plan: buildAppPlan(prompt),
+              bundle: undefined,
+              notes: ["当前版本使用本地规则生成器，适合离线演示。"],
+            };
 
-    await wait();
-    steps = patchStep(steps, "plan", "done");
-    steps = patchStep(steps, "build", "running");
-    set((state) => ({
-      generation: { ...state.generation, steps, activeStepId: "build" },
-    }));
+      await wait();
+      steps = patchStep(steps, "plan", "done");
+      steps = patchStep(steps, "build", "running");
+      set((state) => ({
+        generation: { ...state.generation, steps, activeStepId: "build", notes },
+      }));
 
-    const bundle = buildGeneratedBundle(plan, prompt);
+      const resolvedBundle = bundle ?? buildGeneratedBundle(plan, prompt);
 
-    await wait();
-    steps = patchStep(steps, "build", "done");
-    steps = patchStep(steps, "preview", "running");
-    set((state) => ({
-      generation: { ...state.generation, steps, activeStepId: "preview" },
-    }));
+      await wait();
+      steps = patchStep(steps, "build", "done");
+      steps = patchStep(steps, "preview", "running");
+      set((state) => ({
+        generation: { ...state.generation, steps, activeStepId: "preview", notes },
+      }));
 
-    const version: ProjectVersion = {
-      id: nanoid(),
-      projectId,
-      versionName: `版本 ${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`,
-      promptSnapshot: prompt,
-      planSnapshot: plan,
-      bundle,
-      createdAt: stamp(),
-    };
-
-    const nextProject: Project = {
-      ...project,
-      name: prompt.appName || project.name,
-      prompt,
-      status: "generated",
-      latestVersionId: version.id,
-      updatedAt: stamp(),
-      deletedAt: undefined,
-    };
-
-    await Promise.all([saveProject(nextProject), saveProjectVersion(version)]);
-    await wait();
-
-    steps = patchStep(steps, "preview", "done");
-    set((state) => ({
-      projects: state.projects
-        .map((item) => (item.id === projectId ? nextProject : item))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-      versions: {
-        ...state.versions,
-        [projectId]: [version, ...(state.versions[projectId] ?? [])],
-      },
-      generation: {
+      const version: ProjectVersion = {
+        id: nanoid(),
         projectId,
-        steps,
-        activeStepId: "preview",
-        startedAt,
-        finishedAt: stamp(),
-      },
-    }));
+        versionName: `版本 ${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`,
+        promptSnapshot: prompt,
+        planSnapshot: plan,
+        bundle: resolvedBundle,
+        generationMode: mode,
+        generationNotes: notes,
+        createdAt: stamp(),
+      };
+
+      const nextProject: Project = {
+        ...project,
+        name: prompt.appName || project.name,
+        prompt,
+        status: "generated",
+        latestVersionId: version.id,
+        updatedAt: stamp(),
+        deletedAt: undefined,
+      };
+
+      await Promise.all([saveProject(nextProject), saveProjectVersion(version)]);
+      await wait();
+
+      steps = patchStep(steps, "preview", "done");
+      set((state) => ({
+        projects: state.projects
+          .map((item) => (item.id === projectId ? nextProject : item))
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+        versions: {
+          ...state.versions,
+          [projectId]: [version, ...(state.versions[projectId] ?? [])],
+        },
+        generation: {
+          projectId,
+          mode,
+          engineLabel,
+          steps,
+          activeStepId: "preview",
+          startedAt,
+          finishedAt: stamp(),
+          notes,
+        },
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "生成失败，请稍后重试。";
+      steps = steps.map((step) => (step.status === "running" ? { ...step, status: "error" } : step));
+      set((state) => ({
+        projects: state.projects.map((item) => (item.id === projectId ? { ...item, status: "error", updatedAt: stamp() } : item)),
+        generation: {
+          ...state.generation,
+          mode,
+          engineLabel,
+          steps,
+          finishedAt: stamp(),
+          errorMessage,
+        },
+      }));
+    }
   },
 
   reloadVersions: async (projectId) => {

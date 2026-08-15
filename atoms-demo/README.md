@@ -1,10 +1,10 @@
 # Atoms Demo Studio
 
-一个面向评审与体验场景的 Atoms 风格网页 Demo。它把“自然语言想法 -> 页面规划 -> 代码生成 -> 实时预览 -> 版本沉淀”做成了一条可运行、可感知、可持久化的前端工作流。
+一个面向评审与体验场景的 Atoms 风格网页 Demo。它把“自然语言想法 -> Agent 规划 -> Agent 代码生成 -> 实时预览 -> 版本沉淀”做成了一条可运行、可感知、可持久化的工作流，并保留 `Local Demo` 离线兜底模式。
 
 ## 在线访问
 
-- 当前访问地址：`https://gentle-comet-344.harvis.page/`
+- 当前访问地址：`https://swift-pixel-163.harvis.page/`
 - 当前发布方式：`1FreeHosting` 独立子域托管
 - 说明：这次发布已经是独立站点入口，不再依赖路径前缀；若要长期保留，需要使用本地私有 claim 信息把站点绑定到账号。私有 claim 信息未写入仓库，保存在本地 `dist/.hosting.json`。
 
@@ -44,6 +44,17 @@ pnpm preview
 - 版本管理：每次生成自动沉淀为版本，可回滚、Remix、恢复
 - 展示页：查看所有项目、筛选、搜索、删除与恢复
 - 本地持久化：用户偏好、项目、版本全部写入浏览器 IndexedDB
+- 双模生成：支持 `Local Demo` 规则生成，也支持填写 OpenAI-compatible 配置后启用真实 `Agent LLM`
+
+## Agent 模式说明
+
+如果你要让 Demo 真正由模型参与“规划 + 代码生成”，请在工作室中切换到 `Agent LLM`，然后填写：
+
+- `Base URL`
+- `Model`
+- `API Key`
+
+这些配置只保存在当前浏览器的 IndexedDB，不会写入仓库。当前静态站点采用 `BYOK`（bring your own key）方式工作，因此无需额外后端也能跑通真实 Agent 生成链路。
 
 ## 项目文档
 

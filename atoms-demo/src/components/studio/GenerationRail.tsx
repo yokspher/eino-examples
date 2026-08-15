@@ -15,8 +15,11 @@ export function GenerationRail({ session }: GenerationRailProps) {
           <h2 className="mt-2 font-display text-2xl text-zinc-50">把生成过程真的展示出来</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">这里不是静态装饰，而是当前生成任务的真实阶段状态。</p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-zinc-300">
-          {session.finishedAt ? "最近一次已完成" : "等待启动"}
+        <div className="grid gap-2 text-right">
+          <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-zinc-300">
+            {session.finishedAt ? "最近一次已完成" : "等待启动"}
+          </div>
+          <div className="text-xs text-zinc-500">{session.engineLabel ?? "Local Demo"}</div>
         </div>
       </div>
 
@@ -60,6 +63,21 @@ export function GenerationRail({ session }: GenerationRailProps) {
           );
         })}
       </div>
+
+      {session.errorMessage ? (
+        <div className="mt-4 rounded-[20px] border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{session.errorMessage}</div>
+      ) : null}
+
+      {session.notes?.length ? (
+        <div className="mt-4 rounded-[20px] border border-white/8 bg-black/10 p-4">
+          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Generation notes</p>
+          <ul className="mt-3 grid gap-2 text-sm leading-6 text-zinc-400">
+            {session.notes.map((item) => (
+              <li key={item}>- {item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -38,6 +38,11 @@ export function VersionTimeline({ versions, activeVersionId, onPreview, onRestor
                       <Clock3 className="h-3.5 w-3.5" />
                       {new Date(version.createdAt).toLocaleString("zh-CN")}
                     </div>
+                    <div className="mt-2">
+                      <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-zinc-300">
+                        {version.generationMode === "agent" ? "Agent LLM" : "Local Demo"}
+                      </span>
+                    </div>
                   </div>
                   {active ? <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-zinc-200">当前预览</span> : null}
                 </div>
