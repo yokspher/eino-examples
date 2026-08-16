@@ -93,7 +93,7 @@ export function StudioPage() {
         </div>
       }
     >
-      <section className="grid gap-6 xl:grid-cols-[0.96fr_0.94fr_1.1fr]">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-[0.96fr_0.94fr_1.1fr]">
         <div className="grid gap-6">
           <PromptForm
             value={project.prompt}
@@ -125,7 +125,7 @@ export function StudioPage() {
           />
         </div>
 
-        <div className="grid gap-6">
+        <div className="grid gap-6 xl:col-span-2 2xl:col-span-1">
           <PreviewSurface bundle={activeVersion?.bundle} />
           <CodePreviewTabs bundle={activeVersion?.bundle} />
         </div>

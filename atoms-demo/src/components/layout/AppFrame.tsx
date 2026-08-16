@@ -21,7 +21,7 @@ export function AppFrame({ title, eyebrow, description, actions, children }: App
   return (
     <div className="min-h-screen bg-ink-950 text-zinc-50">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,_rgba(91,127,255,0.25),_transparent_30%),radial-gradient(circle_at_80%_20%,_rgba(76,219,201,0.15),_transparent_20%),linear-gradient(180deg,_#0c1016,_#0a0d12)]" />
-      <div className="mx-auto flex min-h-screen w-full max-w-[1520px] flex-col px-6 py-6 lg:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-6 py-6 lg:px-8">
         <header className="mb-8 rounded-[28px] border border-white/10 bg-white/5 px-6 py-5 backdrop-blur-xl">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
