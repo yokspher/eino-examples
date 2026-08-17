@@ -44,6 +44,33 @@ export function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.trim().replace(/\/$/, "");
 }
 
+export function getAgentConfigIssue(config?: AgentConfig | null) {
+  if (!config || config.mode !== "agent") {
+    return null;
+  }
+
+  if (config.transport === "proxy") {
+    return config.proxyUrl.trim() && config.model.trim() ? null : "服务端代理模式还缺少 Proxy URL 或 Model。";
+  }
+
+  const baseUrl = normalizeBaseUrl(config.baseUrl).toLowerCase();
+  const model = config.model.trim().toLowerCase();
+
+  if (!baseUrl || !model || !config.apiKey.trim()) {
+    return "浏览器直连模式还缺少 Base URL、Model 或 API Key。";
+  }
+
+  if (baseUrl.includes("/contents/generations/tasks")) {
+    return "当前 Agent 只支持 OpenAI 兼容的文本对话接口。Base URL 请填写 API 根地址，例如 https://ark.cn-beijing.volces.com/api/v3，不要填写具体任务地址。";
+  }
+
+  if (/seedance|eedance|video/.test(model)) {
+    return "Seedance 属于视频生成模型，不适合当前网页代码生成 Agent。请改用文本或代码模型，例如 doubao-seed-2-1-pro-260628，或使用你自己的 ep-xxxx 接入点。";
+  }
+
+  return null;
+}
+
 function escapeHtml(input: string) {
   return input
     .replace(/&/g, "&amp;")
@@ -312,11 +339,5 @@ ${JSON.stringify(prompt, null, 2)}
 }
 
 export function isAgentConfigReady(config?: AgentConfig | null) {
-  if (!config || config.mode !== "agent") {
-    return true;
-  }
-  if (config.transport === "proxy") {
-    return Boolean(config.proxyUrl.trim() && config.model.trim());
-  }
-  return Boolean(config.baseUrl.trim() && config.model.trim() && config.apiKey.trim());
+  return !getAgentConfigIssue(config);
 }

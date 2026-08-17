@@ -88,4 +88,27 @@ describe("PromptForm", () => {
 
     expect(screen.getByRole("button", { name: "启动 Agent 生成" })).toBeEnabled();
   });
+
+  it("should show helpful message for task-style volcengine urls", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <PromptForm
+        value={basePrompt}
+        preferredStyle="包豪斯低对比"
+        agentConfig={{
+          ...defaultAgentConfig,
+          mode: "agent",
+          transport: "browser",
+          baseUrl: "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks",
+          model: "Doubao-Seedance-2.5",
+          apiKey: "ark-demo",
+        }}
+        onSubmit={onSubmit}
+        loading={false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "补全后开始生成" })).toBeDisabled();
+    expect(screen.getByText(/不要填写具体任务地址/)).toBeInTheDocument();
+  });
 });

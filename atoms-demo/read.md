@@ -199,7 +199,7 @@ pnpm preview
 
 ## 13. 当前部署信息
 
-- 当前公开访问地址：`https://zesty-meadow-622.harvis.page/`
+- 当前公开访问地址：`https://fuzzy-harbor-789.harvis.page/`
 - 当前发布方式：`1FreeHosting`
 - 当前发布形态：独立子域静态站点
 

@@ -4,7 +4,7 @@
 
 ## 在线访问
 
-- 当前访问地址：`https://zesty-meadow-622.harvis.page/`
+- 当前访问地址：`https://fuzzy-harbor-789.harvis.page/`
 - 当前发布方式：`1FreeHosting` 独立子域托管
 - 说明：这次发布已经是独立站点入口，不再依赖路径前缀；若要长期保留，需要使用本地私有 claim 信息把站点绑定到账号。私有 claim 信息未写入仓库，保存在本地 `dist/.hosting.json`。
 

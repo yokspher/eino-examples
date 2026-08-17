@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, WandSparkles } from "lucide-react";
 
 import { generatorPresets } from "@/data/presets";
-import { defaultAgentConfig, isAgentConfigReady } from "@/lib/agent";
+import { defaultAgentConfig, getAgentConfigIssue, isAgentConfigReady } from "@/lib/agent";
 import type { AgentConfig, AppPrompt } from "@/types/domain";
 
 interface PromptFormProps {
@@ -53,15 +53,14 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
   const goalReady = preparedForm.goal.trim().length >= 10;
   const audienceReady = preparedForm.audience.trim().length > 0;
   const pageReady = preparedForm.pages.length > 0;
+  const agentIssue = getAgentConfigIssue(engine);
   const agentReady = isAgentConfigReady(engine);
   const canGenerate = goalReady && audienceReady && !loading && agentReady;
 
   const readinessText = canGenerate
     ? "输入已经足够清晰，可以开始生成。"
-    : engine.mode === "agent" && !agentReady
-      ? engine.transport === "proxy"
-        ? "服务端代理模式还缺少 Proxy URL 或 Model。"
-        : "浏览器直连模式还缺少 Base URL、Model 或 API Key。"
+    : engine.mode === "agent" && agentIssue
+      ? agentIssue
       : "至少补全核心目标和目标用户，生成结果会稳定很多。";
 
   return (
@@ -227,16 +226,24 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
                     )}
                   </div>
                   {engine.transport === "browser" ? (
-                    <label className="grid gap-2 text-xs text-zinc-300">
-                      <span>API Key（仅保存在当前浏览器）</span>
-                      <input
-                        type="password"
-                        value={engine.apiKey}
-                        onChange={(event) => setEngine((prev) => ({ ...prev, apiKey: event.target.value }))}
-                        className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
-                        placeholder="sk-..."
-                      />
-                    </label>
+                    <div className="grid gap-3">
+                      <label className="grid gap-2 text-xs text-zinc-300">
+                        <span>API Key（仅保存在当前浏览器）</span>
+                        <input
+                          type="password"
+                          value={engine.apiKey}
+                          onChange={(event) => setEngine((prev) => ({ ...prev, apiKey: event.target.value }))}
+                          className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
+                          placeholder="sk-..."
+                        />
+                      </label>
+                      <div className="rounded-2xl border border-amber-300/15 bg-amber-400/10 px-4 py-3 text-xs leading-6 text-amber-100">
+                        当前浏览器直连模式固定调用 <code className="rounded bg-black/20 px-1 py-0.5">chat/completions</code>，只支持文本或代码模型。
+                        如果你用的是 Volcengine Ark，请优先填写 <code className="rounded bg-black/20 px-1 py-0.5">https://ark.cn-beijing.volces.com/api/v3</code>，
+                        Model 填文本模型或你自己的 <code className="rounded bg-black/20 px-1 py-0.5">ep-xxxx</code> 接入点，不要填
+                        <code className="rounded bg-black/20 px-1 py-0.5">/contents/generations/tasks</code> 这类任务型地址。
+                      </div>
+                    </div>
                   ) : (
                     <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 px-4 py-3 text-xs leading-6 text-emerald-100">
                       服务端代理模式下，API Key 由后端环境变量提供，不需要暴露在浏览器里。
