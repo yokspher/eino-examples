@@ -29,6 +29,17 @@ interface BundlePayload {
   notes?: string[];
 }
 
+interface ResponsesContentItem {
+  type?: string;
+  text?: string;
+}
+
+interface ResponsesOutputItem {
+  type?: string;
+  role?: string;
+  content?: ResponsesContentItem[];
+}
+
 export const defaultAgentConfig: AgentConfig = {
   mode: "local",
   transport: "proxy",
@@ -40,8 +51,27 @@ export const defaultAgentConfig: AgentConfig = {
   temperature: 0.4,
 };
 
+export function getBrowserDirectDefaults(current?: Partial<AgentConfig>): Partial<AgentConfig> {
+  return {
+    ...current,
+    transport: "browser",
+    providerLabel: "Volcengine Ark",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+    model: "deepseek-v4-pro-260425",
+  };
+}
+
 export function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.trim().replace(/\/$/, "");
+}
+
+export function shouldUseResponsesApi(config?: AgentConfig | null) {
+  if (!config || config.mode !== "agent" || config.transport !== "browser") {
+    return false;
+  }
+
+  const baseUrl = normalizeBaseUrl(config.baseUrl).toLowerCase();
+  return baseUrl.includes("ark.cn-beijing.volces.com/api/v3");
 }
 
 export function getAgentConfigIssue(config?: AgentConfig | null) {
@@ -180,6 +210,78 @@ async function invokeOpenAICompatible<T>(config: AgentConfig, messages: ChatMess
   return extractJsonObject(content) as T;
 }
 
+function buildResponsesInput(messages: ChatMessage[]) {
+  return messages.map((message) => ({
+    role: message.role,
+    content: [
+      {
+        type: "input_text",
+        text: message.content,
+      },
+    ],
+  }));
+}
+
+function extractResponsesText(output: ResponsesOutputItem[] | undefined) {
+  if (!Array.isArray(output)) {
+    return "";
+  }
+
+  for (const item of output) {
+    if (item.type !== "message") {
+      continue;
+    }
+
+    const text = item.content
+      ?.filter((content) => content.type === "output_text" && typeof content.text === "string")
+      .map((content) => content.text?.trim() || "")
+      .filter(Boolean)
+      .join("\n");
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+async function invokeResponsesCompatible<T>(config: AgentConfig, messages: ChatMessage[]): Promise<T> {
+  const baseUrl = normalizeBaseUrl(config.baseUrl);
+  if (!baseUrl || !config.model.trim() || !config.apiKey.trim()) {
+    throw new Error("Agent 模式需要补全 Base URL、Model 和 API Key。");
+  }
+
+  const response = await fetch(`${baseUrl}/responses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.apiKey.trim()}`,
+    },
+    body: JSON.stringify({
+      model: config.model.trim(),
+      input: buildResponsesInput(messages),
+      store: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Agent 调用失败（${response.status}）：${text.slice(0, 240)}`);
+  }
+
+  const payload = (await response.json()) as {
+    output?: ResponsesOutputItem[];
+  };
+
+  const content = extractResponsesText(payload.output);
+  if (!content) {
+    throw new Error("模型没有返回可解析的内容");
+  }
+
+  return extractJsonObject(content) as T;
+}
+
 async function invokeProxyAgent(config: AgentConfig, prompt: AppPrompt): Promise<AgentGenerationResult> {
   const proxyUrl = config.proxyUrl.trim() || "/api/agent/generate";
 
@@ -262,6 +364,8 @@ export async function runAgentGeneration(prompt: AppPrompt, config: AgentConfig)
     return invokeProxyAgent(config, prompt);
   }
 
+  const invokeTextAgent = shouldUseResponsesApi(config) ? invokeResponsesCompatible : invokeOpenAICompatible;
+
   const plannerSystem = `
 你是一个资深产品规划 Agent，负责把用户需求整理成可生成网页应用的结构化计划。
 输出必须是 JSON 对象，不要附带解释，不要使用 Markdown。
@@ -292,7 +396,7 @@ export async function runAgentGeneration(prompt: AppPrompt, config: AgentConfig)
 }
 `.trim();
 
-  const planPayload = await invokeOpenAICompatible<PlanPayload>(config, [
+  const planPayload = await invokeTextAgent<PlanPayload>(config, [
     { role: "system", content: plannerSystem },
     { role: "user", content: plannerUser },
   ]);
@@ -325,7 +429,7 @@ ${JSON.stringify(prompt, null, 2)}
 }
 `.trim();
 
-  const bundlePayload = await invokeOpenAICompatible<BundlePayload>(config, [
+  const bundlePayload = await invokeTextAgent<BundlePayload>(config, [
     { role: "system", content: builderSystem },
     { role: "user", content: builderUser },
   ]);

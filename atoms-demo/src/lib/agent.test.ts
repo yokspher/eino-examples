@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extractJsonObject, getAgentConfigIssue, isAgentConfigReady, normalizeBaseUrl } from "@/lib/agent";
+import { extractJsonObject, getAgentConfigIssue, isAgentConfigReady, normalizeBaseUrl, shouldUseResponsesApi } from "@/lib/agent";
 
 describe("agent helpers", () => {
   it("extractJsonObject should parse fenced json payload", () => {
@@ -71,5 +71,20 @@ describe("agent helpers", () => {
         temperature: 0.4,
       }),
     ).toContain("视频生成模型");
+  });
+
+  it("shouldUseResponsesApi should detect volcengine ark browser mode", () => {
+    expect(
+      shouldUseResponsesApi({
+        mode: "agent",
+        transport: "browser",
+        providerLabel: "Volcengine Ark",
+        baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+        proxyUrl: "/api/agent/generate",
+        model: "deepseek-v4-pro-260425",
+        apiKey: "ark-demo",
+        temperature: 0.4,
+      }),
+    ).toBe(true);
   });
 });

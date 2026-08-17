@@ -111,4 +111,22 @@ describe("PromptForm", () => {
     expect(screen.getByRole("button", { name: "补全后开始生成" })).toBeDisabled();
     expect(screen.getByText(/不要填写具体任务地址/)).toBeInTheDocument();
   });
+
+  it("should prefill ark defaults when switching to browser direct", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <PromptForm
+        value={basePrompt}
+        preferredStyle="包豪斯低对比"
+        agentConfig={{ ...defaultAgentConfig, mode: "agent", transport: "proxy", apiKey: "" }}
+        onSubmit={onSubmit}
+        loading={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "浏览器直连" }));
+
+    expect(screen.getByDisplayValue("https://ark.cn-beijing.volces.com/api/v3")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("deepseek-v4-pro-260425")).toBeInTheDocument();
+  });
 });

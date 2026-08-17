@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, WandSparkles } from "lucide-react";
 
 import { generatorPresets } from "@/data/presets";
-import { defaultAgentConfig, getAgentConfigIssue, isAgentConfigReady } from "@/lib/agent";
+import { defaultAgentConfig, getAgentConfigIssue, getBrowserDirectDefaults, isAgentConfigReady } from "@/lib/agent";
 import type { AgentConfig, AppPrompt } from "@/types/domain";
 
 interface PromptFormProps {
@@ -147,7 +147,12 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEngine((prev) => ({ ...prev, transport: "browser" }))}
+                    onClick={() =>
+                      setEngine((prev) => ({
+                        ...prev,
+                        ...getBrowserDirectDefaults(prev),
+                      }))
+                    }
                     className={`rounded-full px-3 py-1 text-xs transition ${
                       engine.transport === "browser" ? "bg-white text-zinc-950" : "border border-white/10 text-zinc-300 hover:bg-white/10"
                     }`}
@@ -191,7 +196,7 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
                           })
                         }
                         className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
-                        placeholder="gpt-4.1-mini"
+                        placeholder="deepseek-v4-pro-260425"
                       />
                     </label>
                     {engine.transport === "proxy" ? (
@@ -220,7 +225,7 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
                             })
                           }
                           className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-50 outline-none focus:border-cobalt-400"
-                          placeholder="https://api.openai.com/v1"
+                        placeholder="https://ark.cn-beijing.volces.com/api/v3"
                         />
                       </label>
                     )}
@@ -238,7 +243,8 @@ export function PromptForm({ value, preferredStyle, agentConfig, onSubmit, loadi
                         />
                       </label>
                       <div className="rounded-2xl border border-amber-300/15 bg-amber-400/10 px-4 py-3 text-xs leading-6 text-amber-100">
-                        当前浏览器直连模式固定调用 <code className="rounded bg-black/20 px-1 py-0.5">chat/completions</code>，只支持文本或代码模型。
+                        浏览器直连模式会自动选择合适的文本接口：默认走 <code className="rounded bg-black/20 px-1 py-0.5">chat/completions</code>，
+                        Volcengine Ark 会自动切到 <code className="rounded bg-black/20 px-1 py-0.5">responses</code>。当前只支持文本或代码模型。
                         如果你用的是 Volcengine Ark，请优先填写 <code className="rounded bg-black/20 px-1 py-0.5">https://ark.cn-beijing.volces.com/api/v3</code>，
                         Model 填文本模型或你自己的 <code className="rounded bg-black/20 px-1 py-0.5">ep-xxxx</code> 接入点，不要填
                         <code className="rounded bg-black/20 px-1 py-0.5">/contents/generations/tasks</code> 这类任务型地址。
